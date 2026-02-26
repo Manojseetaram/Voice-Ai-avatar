@@ -12,6 +12,8 @@ use serde::Serialize;
 use std::env;
 use tower_http::cors::{Any, CorsLayer};
 
+
+
 #[derive(Serialize)]
 struct LLMResponse {
     text: String,
@@ -21,21 +23,25 @@ struct LLMResponse {
 #[tokio::main]
 async fn main() {
     dotenv().ok();
+let cors = CorsLayer::new()
+    .allow_origin(Any)       // or specific domain
+    .allow_methods([Method::POST, Method::OPTIONS])
+    .allow_headers(Any);
 
-    let cors = CorsLayer::new()
-        .allow_origin(Any)
-        .allow_methods([Method::POST, Method::OPTIONS])
-        .allow_headers(Any);
-
-    let app = Router::new()
-        .route("/ask", post(handle_audio))
-        .layer(cors);
+let app = Router::new()
+    .route("/ask", post(handle_audio))
+    .layer(cors);
 
     println!("Server running on http://localhost:8000");
-    axum::Server::bind(&"0.0.0.0:8000".parse().unwrap())
-        .serve(app.into_make_service())
-        .await
-        .unwrap();
+    let port: u16 = env::var("PORT")
+    .unwrap_or("8000".to_string())
+    .parse()
+    .expect("PORT must be a number");
+
+axum::Server::bind(&format!("0.0.0.0:{}", port).parse().unwrap())
+    .serve(app.into_make_service())
+    .await
+    .unwrap();
 }
 
 async fn handle_audio(mut multipart: Multipart) -> Json<LLMResponse> {
