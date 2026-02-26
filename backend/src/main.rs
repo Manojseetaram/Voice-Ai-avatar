@@ -12,7 +12,7 @@ use serde::Serialize;
 use std::env;
 use tower_http::cors::{Any, CorsLayer};
 
-
+  
 
 #[derive(Serialize)]
 struct LLMResponse {
@@ -33,8 +33,10 @@ let app = Router::new()
     .layer(cors);
 
     println!("Server running on http://localhost:8000");
-    let port: u16 = env::var("PORT")
-    .unwrap_or("8000".to_string())
+
+
+let port: u16 = env::var("PORT")
+    .unwrap_or_else(|_| "8000".to_string())
     .parse()
     .expect("PORT must be a number");
 
@@ -42,6 +44,8 @@ axum::Server::bind(&format!("0.0.0.0:{}", port).parse().unwrap())
     .serve(app.into_make_service())
     .await
     .unwrap();
+
+println!("Server running on port {}", port);
 }
 
 async fn handle_audio(mut multipart: Multipart) -> Json<LLMResponse> {
