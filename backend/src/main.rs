@@ -12,8 +12,6 @@ use serde::Serialize;
 use std::env;
 use tower_http::cors::{Any, CorsLayer};
 
-  
-
 #[derive(Serialize)]
 struct LLMResponse {
     text: String,
@@ -23,29 +21,27 @@ struct LLMResponse {
 #[tokio::main]
 async fn main() {
     dotenv().ok();
-let cors = CorsLayer::new()
-    .allow_origin(Any)       // or specific domain
-    .allow_methods([Method::POST, Method::OPTIONS])
-    .allow_headers(Any);
 
-let app = Router::new()
-    .route("/ask", post(handle_audio))
-    .layer(cors);
+    let cors = CorsLayer::new()
+        .allow_origin(Any)
+        .allow_methods([Method::POST, Method::OPTIONS])
+        .allow_headers(Any);
 
-    println!("Server running on http://localhost:8000");
+    let app = Router::new()
+        .route("/ask", post(handle_audio))
+        .layer(cors);
 
+    // Render injects PORT env var — must bind to it or Render kills the service
+    let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+    let addr: std::net::SocketAddr = format!("0.0.0.0:{}", port).parse().unwrap();
 
-let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
-let addr = format!("0.0.0.0:{}", port).parse().unwrap();
+    // Print BEFORE binding — Render scans for this line
+    println!("Server running on http://0.0.0.0:{}", port);
 
-println!("Server running on http://{}", addr);
-
-axum::Server::bind(&addr)
-    .serve(app.into_make_service())
-    .await
-    .unwrap();
-
-println!("Server running on port {}", port);
+    axum::Server::bind(&addr)
+        .serve(app.into_make_service())
+        .await
+        .unwrap();
 }
 
 async fn handle_audio(mut multipart: Multipart) -> Json<LLMResponse> {
@@ -63,7 +59,6 @@ async fn handle_audio(mut multipart: Multipart) -> Json<LLMResponse> {
     println!("Received audio: {} bytes, filename: {}", audio_bytes.len(), filename);
 
     if audio_bytes.len() < 1000 {
-        println!("Audio too small, skipping");
         return Json(LLMResponse { text: String::new(), audio_b64: String::new() });
     }
 
@@ -77,8 +72,7 @@ async fn handle_audio(mut multipart: Multipart) -> Json<LLMResponse> {
 
     let part = reqwest::multipart::Part::bytes(audio_bytes)
         .file_name(filename.clone())
-        .mime_str(mime)
-        .unwrap();
+        .mime_str(mime).unwrap();
 
     let form = reqwest::multipart::Form::new()
         .part("file", part)
@@ -120,9 +114,7 @@ async fn handle_audio(mut multipart: Multipart) -> Json<LLMResponse> {
         .as_str().unwrap_or("").trim().to_string();
     println!("AI reply: {}", llm_text);
 
-    // ── 3. TTS — try ElevenLabs free tier first, fall back gracefully ─────
-    // ElevenLabs free: 10,000 chars/month — get key at https://elevenlabs.io
-    // Voice: "Rachel" (21m00Tcm4TlvDq8ikWAM) — natural female
+    // ── 3. ElevenLabs TTS (optional) ─────────────────────────────────────
     let audio_b64 = if let Ok(el_key) = env::var("ELEVENLABS_API_KEY") {
         let tts_resp = client
             .post("https://api.elevenlabs.io/v1/text-to-speech/21m00Tcm4TlvDq8ikWAM")
@@ -146,17 +138,11 @@ async fn handle_audio(mut multipart: Multipart) -> Json<LLMResponse> {
                 println!("ElevenLabs TTS: {} bytes", bytes.len());
                 general_purpose::STANDARD.encode(&bytes)
             }
-            Ok(resp) => {
-                println!("ElevenLabs error: {}", resp.status());
-                String::new()
-            }
-            Err(e) => {
-                println!("ElevenLabs request failed: {}", e);
-                String::new()
-            }
+            Ok(resp) => { println!("ElevenLabs error: {}", resp.status()); String::new() }
+            Err(e)   => { println!("ElevenLabs failed: {}", e); String::new() }
         }
     } else {
-        println!("No ELEVENLABS_API_KEY — frontend will use browser TTS");
+        println!("No ELEVENLABS_API_KEY — browser TTS fallback");
         String::new()
     };
 

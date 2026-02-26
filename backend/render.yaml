@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: nova-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false          # you paste this in Render dashboard
+      - key: ELEVENLABS_API_KEY
+        sync: false          # you paste this in Render dashboard
+      - key: PORT
+        value: 8000
