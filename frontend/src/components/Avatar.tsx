@@ -7,53 +7,130 @@ interface AvatarProps {
   isListening?: boolean;
 }
 
+// ── Patch for pixi-live2d-display + PixiJS v7: renderer.plugins.interaction was removed
+const _proto = (PIXI.Renderer as any).prototype;
+if (!_proto._live2dPatched) {
+  const _orig = Object.getOwnPropertyDescriptor(_proto, "plugins");
+  Object.defineProperty(_proto, "plugins", {
+    get() {
+      const p = _orig?.get?.call(this) ?? this._plugins ?? {};
+      if (!p.interaction) p.interaction = { on: () => {}, off: () => {}, destroy: () => {} };
+      return p;
+    },
+    configurable: true,
+  });
+  _proto._live2dPatched = true;
+}
+
 const Avatar: React.FC<AvatarProps> = ({ isSpeaking, isListening }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const appRef = useRef<PIXI.Application | null>(null);
   const modelRef = useRef<Live2DModel | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
-  useEffect(() => {
-    if (!containerRef.current || appRef.current) return;
+  const initApp = () => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    // Tear down previous instance
+    if (appRef.current) {
+      appRef.current.destroy(true, { children: true });
+      appRef.current = null;
+      modelRef.current = null;
+    }
+    if (canvasRef.current && container.contains(canvasRef.current)) {
+      container.removeChild(canvasRef.current);
+      canvasRef.current = null;
+    }
+
+    const W = container.clientWidth;
+    const H = container.clientHeight;
+    if (W === 0 || H === 0) return;
 
     const app = new PIXI.Application({
-      resizeTo: containerRef.current,
+      width: W,
+      height: H,
       backgroundAlpha: 0,
       antialias: true,
       autoDensity: true,
-      height: 50,
       resolution: window.devicePixelRatio || 1,
-      eventMode: "none" as any,
     });
     appRef.current = app;
-    containerRef.current.appendChild(app.view as HTMLCanvasElement);
 
-    // ✅ Pass the Ticker class itself, not the shared instance
+    const canvas = app.view as HTMLCanvasElement;
+    canvasRef.current = canvas;
+    canvas.style.width = `${W}px`;
+    canvas.style.height = `${H}px`;
+    canvas.style.display = "block";
+    container.appendChild(canvas);
+
     Live2DModel.registerTicker(PIXI.Ticker);
 
-    Live2DModel.from("/Resources/Hiyori/Hiyori.model3.json")
+    Live2DModel.from("/Resources/Hiyori/Hiyori.model3.json", { autoInteract: false })
       .then((model) => {
+        if (!appRef.current) return;
         modelRef.current = model;
-        model.scale.set(0.35);
+
+        // On mobile: scale to fill ~90% height
+        // On desktop: scale based on width so model looks natural and zoomed
+        const isMobile = window.innerWidth < 768;
+        let scale: number;
+
+        if (isMobile) {
+          // Fill 90% of container height
+          const naturalH = model.height / model.scale.y;
+          scale = (H * 0.9) / naturalH;
+        } else {
+          // On desktop, use width-based scaling so it looks "zoomed in" like a portrait
+          const naturalW = model.width / model.scale.x;
+          scale = (W * 0.85) / naturalW;
+          // Cap so it doesn't go taller than the container
+          const naturalH = model.height / model.scale.y;
+          const maxScaleH = (H * 0.95) / naturalH;
+          scale = Math.min(scale, maxScaleH);
+        }
+
+        model.scale.set(scale);
         model.anchor.set(0.5, 1);
-        model.x = app.screen.width / 2;
-        model.y = app.screen.height;
+        model.x = W / 2;
+        model.y = H;
+        model.eventMode = "none";
+        model.interactiveChildren = false;
 
         app.stage.addChild(model);
       })
-      .catch((err) => console.error("Failed to load Live2D model:", err));
+      .catch((err) => console.error("Live2D load failed:", err));
+  };
+
+  useEffect(() => {
+    // Small delay ensures the container has been laid out and has real dimensions
+    const timer = setTimeout(initApp, 50);
+
+    const handleResize = () => {
+      clearTimeout(timer);
+      initApp();
+    };
+    window.addEventListener("resize", handleResize);
 
     return () => {
-      app.destroy(true, { children: true });
-      appRef.current = null;
+      clearTimeout(timer);
+      window.removeEventListener("resize", handleResize);
+      if (appRef.current) {
+        appRef.current.destroy(true, { children: true });
+        appRef.current = null;
+      }
       modelRef.current = null;
+      const container = containerRef.current;
+      if (canvasRef.current && container?.contains(canvasRef.current)) {
+        container.removeChild(canvasRef.current);
+        canvasRef.current = null;
+      }
     };
   }, []);
 
-  // Optional: expressions
   useEffect(() => {
     const model = modelRef.current;
     if (!model) return;
-
     try {
       if (isSpeaking) model.expression?.("happy");
       else if (isListening) model.expression?.("surprised");
@@ -64,8 +141,7 @@ const Avatar: React.FC<AvatarProps> = ({ isSpeaking, isListening }) => {
   return (
     <div
       ref={containerRef}
-      className="w-full h-full flex justify-center items-end"
-      style={{ width: "420px", height: "480px" }}
+      style={{ position: "absolute", inset: 0 }}
     />
   );
 };
