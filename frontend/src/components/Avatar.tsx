@@ -7,7 +7,7 @@ interface AvatarProps {
   isListening?: boolean;
 }
 
-// ── Patch for pixi-live2d-display + PixiJS v7: renderer.plugins.interaction was removed
+// Patch for pixi-live2d-display + PixiJS v7
 const _proto = (PIXI.Renderer as any).prototype;
 if (!_proto._live2dPatched) {
   const _orig = Object.getOwnPropertyDescriptor(_proto, "plugins");
@@ -32,7 +32,6 @@ const Avatar: React.FC<AvatarProps> = ({ isSpeaking, isListening }) => {
     const container = containerRef.current;
     if (!container) return;
 
-    // Tear down previous instance
     if (appRef.current) {
       appRef.current.destroy(true, { children: true });
       appRef.current = null;
@@ -71,29 +70,21 @@ const Avatar: React.FC<AvatarProps> = ({ isSpeaking, isListening }) => {
         if (!appRef.current) return;
         modelRef.current = model;
 
-        // On mobile: scale to fill ~90% height
-        // On desktop: scale based on width so model looks natural and zoomed
-        const isMobile = window.innerWidth < 768;
-        let scale: number;
+        const naturalH = model.height / model.scale.y;
+        const isMobile = W < 768;
 
-        if (isMobile) {
-          // Fill 90% of container height
-          const naturalH = model.height / model.scale.y;
-          scale = (H * 0.9) / naturalH;
-        } else {
-          // On desktop, use width-based scaling so it looks "zoomed in" like a portrait
-          const naturalW = model.width / model.scale.x;
-          scale = (W * 0.85) / naturalW;
-          // Cap so it doesn't go taller than the container
-          const naturalH = model.height / model.scale.y;
-          const maxScaleH = (H * 0.95) / naturalH;
-          scale = Math.min(scale, maxScaleH);
-        }
+        // Mobile: smaller scale so character fits without overlapping the button
+        // Desktop: your tuned values (3.06 scale, 0.65 offset)
+        const scaleMultiplier = isMobile ? 1.8 : 3.06;
+        const yOffsetRatio   = isMobile ? 0.5  : 0.65;
 
+        const scale = (H * scaleMultiplier) / naturalH;
         model.scale.set(scale);
+
         model.anchor.set(0.5, 1);
         model.x = W / 2;
-        model.y = H;
+        model.y = H + (model.height * yOffsetRatio);
+
         model.eventMode = "none";
         model.interactiveChildren = false;
 
@@ -103,15 +94,9 @@ const Avatar: React.FC<AvatarProps> = ({ isSpeaking, isListening }) => {
   };
 
   useEffect(() => {
-    // Small delay ensures the container has been laid out and has real dimensions
     const timer = setTimeout(initApp, 50);
-
-    const handleResize = () => {
-      clearTimeout(timer);
-      initApp();
-    };
+    const handleResize = () => initApp();
     window.addEventListener("resize", handleResize);
-
     return () => {
       clearTimeout(timer);
       window.removeEventListener("resize", handleResize);
@@ -141,7 +126,7 @@ const Avatar: React.FC<AvatarProps> = ({ isSpeaking, isListening }) => {
   return (
     <div
       ref={containerRef}
-      style={{ position: "absolute", inset: 0 }}
+      style={{ position: "absolute", inset: 0, overflow: "hidden" }}
     />
   );
 };

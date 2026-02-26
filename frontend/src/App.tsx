@@ -39,35 +39,32 @@ export default function App() {
   useEffect(() => () => stopListening(), [])
 
   return (
-    <div className="fixed inset-0 bg-[#08060f] flex flex-col items-center justify-end overflow-hidden">
+    <div className="fixed inset-0 bg-[#08060f] overflow-hidden">
 
-      {/* Subtle ambient glow behind character */}
+      {/* Glow behind character */}
       <div
-        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[80vw] h-[60vh] rounded-full transition-all duration-700"
+        className="pointer-events-none absolute inset-0 transition-all duration-700"
         style={{
           background: status === 'listening'
-            ? 'radial-gradient(ellipse, rgba(16,185,129,0.12) 0%, transparent 70%)'
+            ? 'radial-gradient(ellipse 60% 50% at 50% 80%, rgba(16,185,129,0.13) 0%, transparent 70%)'
             : status === 'speaking'
-            ? 'radial-gradient(ellipse, rgba(168,85,247,0.14) 0%, transparent 70%)'
-            : 'radial-gradient(ellipse, rgba(99,102,241,0.08) 0%, transparent 70%)',
-          filter: 'blur(30px)',
+            ? 'radial-gradient(ellipse 60% 50% at 50% 80%, rgba(168,85,247,0.15) 0%, transparent 70%)'
+            : 'radial-gradient(ellipse 60% 50% at 50% 80%, rgba(99,102,241,0.08) 0%, transparent 70%)',
         }}
       />
 
-      {/* Avatar — fills most of screen, anchored to bottom */}
-      <div className="relative w-full flex-1 flex items-end justify-center">
-        <Avatar isSpeaking={status === 'speaking'} isListening={status === 'listening'} />
-      </div>
+      {/* Avatar fills entire screen */}
+      <Avatar isSpeaking={status === 'speaking'} isListening={status === 'listening'} />
 
-      {/* Bottom controls — just the button */}
-      <div className="relative z-10 w-full flex justify-center pb-10 pt-4">
+      {/* Button — floating at bottom center */}
+      <div className="absolute bottom-8 left-0 right-0 flex justify-center z-10">
         {status === 'idle' ? (
           <button
             onClick={startListening}
-            className="flex items-center gap-3 px-10 py-4 rounded-full text-white font-semibold text-base tracking-wide transition-all duration-200 hover:scale-105 active:scale-95"
+            className="flex items-center gap-2.5 px-10 py-4 rounded-full text-white font-semibold text-base tracking-wide transition-all duration-200 hover:scale-105 active:scale-95"
             style={{
               background: 'linear-gradient(135deg, #4f46e5, #7c3aed)',
-              boxShadow: '0 0 32px rgba(99,102,241,0.5), 0 4px 16px rgba(0,0,0,0.4)',
+              boxShadow: '0 0 40px rgba(99,102,241,0.55), 0 4px 20px rgba(0,0,0,0.5)',
             }}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
@@ -79,10 +76,10 @@ export default function App() {
         ) : (
           <button
             onClick={stopListening}
-            className="flex items-center gap-3 px-10 py-4 rounded-full text-white font-semibold text-base tracking-wide transition-all duration-200 hover:scale-105 active:scale-95"
+            className="flex items-center gap-2.5 px-10 py-4 rounded-full text-white font-semibold text-base tracking-wide transition-all duration-200 hover:scale-105 active:scale-95"
             style={{
               background: 'linear-gradient(135deg, #dc2626, #b91c1c)',
-              boxShadow: '0 0 32px rgba(220,38,38,0.5), 0 4px 16px rgba(0,0,0,0.4)',
+              boxShadow: '0 0 40px rgba(220,38,38,0.5), 0 4px 20px rgba(0,0,0,0.5)',
             }}
           >
             <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
