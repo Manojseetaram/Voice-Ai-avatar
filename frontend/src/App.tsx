@@ -69,7 +69,7 @@ export default function App() {
       const formData = new FormData()
       formData.append('audio', blob, `voice.${ext}`)
 
-      const res = await fetch('https://voice-ai-avatar.onrender.com', { method: 'POST', body: formData })
+      const res = await fetch('https://voice-ai-avatar.onrender.com/ask', { method: 'POST', body: formData })
       if (!res.ok) throw new Error(`Backend ${res.status}`)
       const data = await res.json()
       if (!data.text) { setStatus('idle'); return }
