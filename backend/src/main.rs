@@ -35,12 +35,12 @@ let app = Router::new()
     println!("Server running on http://localhost:8000");
 
 
-let port: u16 = env::var("PORT")
-    .unwrap_or_else(|_| "8000".to_string())
-    .parse()
-    .expect("PORT must be a number");
+let port = env::var("PORT").unwrap_or_else(|_| "8000".to_string());
+let addr = format!("0.0.0.0:{}", port).parse().unwrap();
 
-axum::Server::bind(&format!("0.0.0.0:{}", port).parse().unwrap())
+println!("Server running on http://{}", addr);
+
+axum::Server::bind(&addr)
     .serve(app.into_make_service())
     .await
     .unwrap();
